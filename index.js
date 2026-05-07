@@ -1,5 +1,11 @@
 import * as THREE from "three";
 import { OrbitControls } from "jsm/controls/OrbitControls.js"; // imports orbit controls (ability to drag/zoom around scene with mouse)
+import GUI from 'lil-gui';
+import { RenderPass } from "jsm/postprocessing/RenderPass.js";
+import { EffectComposer } from "jsm/postprocessing/EffectComposer.js";
+import { UnrealBloomPass } from "jsm/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "jsm/postprocessing/OutputPass.js";
+
 
 
 
@@ -16,20 +22,87 @@ document.body.appendChild(renderer.domElement); // appends renderer to the "dom"
 const fov = 75; // This is measured in degrees (like shallow/deep depth of field for aperture)
 const aspect = w / h; // aspect ratio (?)
 const near = 0.1; // How close to the camera the renderer will begin
-const far = 10; // How far away to the camera the renderer will end
+const far = 20; // How far away to the camera the renderer will end
 const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
 camera.position.z = 4; // changes position of camera on z-axis by 2 unites
 
+// Create Audio Listener
+const listener = new THREE.AudioListener();
+camera.add(listener);
+
+const sound = new THREE.Audio(listener);
+const technoSound = new THREE.Audio(listener);
+const trance = new THREE.Audio(listener);
+const audioLoader = new THREE.AudioLoader();
+audioLoader.load('audio/passion.mp3', function(buffer) {
+    sound.setBuffer(buffer);
+    sound.setLoop(true);
+    sound.setVolume(0.5);
+});
+audioLoader.load('audio/torque.mp3', function(buffer) {
+    technoSound.setBuffer(buffer);
+    technoSound.setLoop(true);
+    technoSound.setVolume(0.5);
+});
+audioLoader.load('audio/driftingaway.mp3', function(buffer) {
+    trance.setBuffer(buffer);
+    trance.setLoop(true);
+    trance.setVolume(0.5);
+});
+
+
+// Low-pass filter — applied outside the inner sphere, bypassed inside
+const lowPassFilter = listener.context.createBiquadFilter();
+lowPassFilter.type = 'lowpass';
+lowPassFilter.frequency.value = 300; // start filtered (camera begins outside)
+sound.setFilter(lowPassFilter);
+technoSound.setFilter(lowPassFilter);
+trance.setFilter(lowPassFilter);
+
 // Create scene / add fog
 const scene = new THREE.Scene();
-const outerFog = new THREE.FogExp2(0x88aaff, 0.9);
-const innerFog = new THREE.FogExp2(0x111111, 0.5); // dark grey haze, layer 1 only
+const outerFog = new THREE.FogExp2(0x111111, .3);
+const innerFog = new THREE.FogExp2(0x111111, 1); // dark grey haze, layer 1 only
 scene.fog = outerFog;
 
 // Add orbit controls
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true; // allows controls to have smooth/longer release; must be added to animate function
 controls.dampingFactor = 0.03;
+
+
+// Postprocessing renderer and composer
+const renderScene = new RenderPass(scene, camera);
+const composer = new EffectComposer(renderer);
+composer.addPass(renderScene);
+
+// Outer bloom settings
+const OUTER_BLOOM = { strength: 0.2, radius: 1, threshold: 0.1 };
+// Inner bloom settings (exposed to GUI)
+let INNER_BLOOM_STRENGTH  = 0.15;
+let INNER_BLOOM_RADIUS    = 0.7;
+let INNER_BLOOM_THRESHOLD = 0.39;
+
+const bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(window.innerWidth, window.innerHeight),
+    OUTER_BLOOM.strength,
+    OUTER_BLOOM.radius,
+    OUTER_BLOOM.threshold
+);
+composer.addPass(bloomPass);
+composer.addPass(new OutputPass());
+
+// skysphere
+const skysphereRadius = 5
+const skyGeometry = new THREE.SphereGeometry(skysphereRadius, 30, 30);
+const skyTexture = new THREE.TextureLoader().load("assets/fog_skyphere.png");
+const skyMaterial = new THREE.MeshBasicMaterial({
+    map: skyTexture,
+    side: THREE.BackSide,
+});
+const skySphere = new THREE.Mesh(skyGeometry, skyMaterial);
+scene.add(skySphere);
+
 
 // Raycaster for click-to-enter interaction
 const raycaster = new THREE.Raycaster();
@@ -80,7 +153,7 @@ const mat = new THREE.MeshStandardMaterial({
     color: 0xffffff,
     flatShading: false,
     transparent: true,
-    opacity: 0.15
+    opacity: 0.03
 }); // creates material for geometry-- MeshStandardMaterial interacts with light, basic material does not 
 const mesh = new THREE.Mesh(geo, mat); // compiles geometry and material into a "mesh" (aka 3D Object)
 mesh.receiveShadow = true;
@@ -89,8 +162,8 @@ scene.add(mesh); // adds mesh object to scene
 // Create inner sphere
 const rave_sphere = new THREE.SphereGeometry(1.9, 30, 30 ); // geometry parameters
 const rave_mat = new THREE.MeshStandardMaterial({
-    color: 0x000000,
-    emissive: 0x333333,
+    color: 0xffffff,
+    emissive: 0xffffff, // ADD COLOR CHANGING PARAMETER
     emissiveIntensity: 0,
     side: THREE.BackSide,
     flatShading: false,
@@ -112,51 +185,22 @@ scene.add(innerLight);
 camera.layers.enable(1);
 
 
-// Red spotlight — horizontal, shining across the interior
-const redSpot = new THREE.SpotLight(0xff0000, 80);
-redSpot.position.set(-1.5, 0, 0);   // left side of sphere interior
-redSpot.angle = Math.PI / 10;
-redSpot.penumbra = 0.4;
-redSpot.decay = 2;
-redSpot.distance = 6;
-redSpot.target.position.set(1.5, 0, 0); // aim horizontally across to the right
-redSpot.layers.set(1);
-redSpot.target.layers.set(1);
-scene.add(redSpot);
-scene.add(redSpot.target);
-
 // ---- Laser Strobe tuning -----------------------------------------------
 const LASER_INTENSITY_MIN  = 0;    // off at the bottom of the pulse
 const LASER_INTENSITY_MAX  = 15;   // peak brightness
-const LASER_STROBE_SPEED   = 0.005; // higher = faster strobe (try 0.002–0.05)
+// const LASER_STROBE_SPEED   = 0.005; // higher = faster strobe (try 0.002–0.05)
+let LASER_STROBE_SPEED   = 0.005;
 // ---- Laser Pivot tuning ------------------------------------------------
 const LASER_PIVOT_SPEED    = 0.001; // how fast lasers sweep in/out (try 0.0005–0.005)
 const LASER_PIVOT_ANGLE_MIN = -0.5; // most vertical (inward) angle in radians
 const LASER_PIVOT_ANGLE_MAX = Math.PI / 2.5; // most outward angle in radians
 // ---- Inner Ambient Light tuning ----------------------------------------
 const INNER_AMBIENT_MIN    = -3;    // minimum brightness (0 = fully off)
-const INNER_AMBIENT_MAX    = 8;    // maximum brightness
-const INNER_AMBIENT_SPEED  = 0.01; // pulse speed (try 0.001–0.01)
+let INNER_AMBIENT_MAX    = 1;    // maximum brightness
+let INNER_AMBIENT_SPEED  = 0.01; // pulse speed (try 0.001–0.01)
 // ------------------------------------------------------------------------
 
 // Pulsing glow — driven via rave_mat emissive so it works on the black inner surface
-
-// Stencil mask — invisible sphere that writes 1 to the stencil buffer so lasers
-// are clipped to the inner sphere's volume. DoubleSide so it works from inside too.
-const stencilMat = new THREE.MeshBasicMaterial({
-    colorWrite: false,
-    depthTest: false,  // must ignore depth — outer sphere's depth values would otherwise fail the test
-    depthWrite: false,
-    stencilWrite: true,
-    stencilFunc: THREE.AlwaysStencilFunc,
-    stencilZPass: THREE.ReplaceStencilOp,
-    stencilRef: 1,
-    side: THREE.DoubleSide
-});
-const stencilMesh = new THREE.Mesh(new THREE.SphereGeometry(1.9, 30, 30), stencilMat);
-stencilMesh.renderOrder = -1; // must draw before lasers in the same pass
-stencilMesh.layers.set(1);
-scene.add(stencilMesh);
 
 // Lasers
 const cylHeight = 9;
@@ -166,9 +210,6 @@ const cylMat = new THREE.MeshStandardMaterial({
     emissive: 0x88ccff,
     transparent: true,
     depthWrite: false,
-    stencilWrite: false,
-    stencilFunc: THREE.EqualStencilFunc, // only draw where stencil = 1 (inside the sphere)
-    stencilRef: 1,
     emissiveIntensity: LASER_INTENSITY_MAX
 });
 
@@ -231,19 +272,19 @@ const PULSE_SPEED_MIN  = 0.00001; // slowest pulse rate  (~16s full cycle)
 const PULSE_SPEED_MAX  = 0.0002; // fastest pulse rate  (~5s full cycle)
 // -----------------------------------------------------------------
 
-// Create point geometry and material
+// Create point geometry
 const pointGeometry = new THREE.CircleGeometry(0.1, 32);
-const pointMaterial = new THREE.MeshStandardMaterial({
-    color: 0xffffff,
-    // emissive: 0x000000,
-    alphaMap: pointAlphaMap,
-    transparent: true,
-    depthWrite: false,
-    side: THREE.DoubleSide
-});
 
 // Generate points on sphere surface
 for (let i = 0; i < numPoints; i++) {
+    const brightness = 0.2 + Math.random() * 0.8; // range: 0.2 (dim) to 1.0 (full white)
+    const pointMaterial = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(brightness, brightness, brightness),
+        alphaMap: pointAlphaMap,
+        transparent: true,
+        depthWrite: false,
+        side: THREE.DoubleSide
+    });
     const point = new THREE.Mesh(pointGeometry, pointMaterial);
     
     // Generate random spherical coordinates
@@ -282,7 +323,7 @@ for (let i = 0; i < numPoints; i++) {
 scene.add(pointsGroup);
 
 // Dim ambient fill so the back of the sphere isn't pure black
-const hemiLight = new THREE.HemisphereLight(0x223344, 0x000011, 10);
+const hemiLight = new THREE.HemisphereLight(0x223344, 0x223344, 100);
 scene.add(hemiLight);
 
 
@@ -352,21 +393,136 @@ function animate(t = 0) {
         }
     }
 
-    // Pass 1: layer 0 only, with outer fog
-    scene.fog = outerFog;
-    camera.layers.set(0);
-    renderer.render(scene, camera);
+    // Show lasers and lift audio filter only when camera is inside the inner sphere (radius 1.9)
+    const insideSphere = camera.position.length() < 1.9;
+    laserGroup.visible = insideSphere;
+    lowPassFilter.frequency.value = insideSphere ? 20000 : 300;
 
-    // Pass 2: layer 1 only, composited on top with inner fog
-    renderer.autoClear = false;
-    scene.fog = innerFog;
-    camera.layers.set(1);
-    renderer.render(scene, camera);
-    renderer.autoClear = true;
-
-    // Restore camera to see both layers
+    // Swap bloom params and fog based on camera position, render both layers
+    if (insideSphere) {
+        bloomPass.strength  = INNER_BLOOM_STRENGTH;
+        bloomPass.radius    = INNER_BLOOM_RADIUS;
+        bloomPass.threshold = INNER_BLOOM_THRESHOLD;
+        scene.fog = innerFog;
+    } else {
+        bloomPass.strength  = OUTER_BLOOM.strength;
+        bloomPass.radius    = OUTER_BLOOM.radius;
+        bloomPass.threshold = OUTER_BLOOM.threshold;
+        scene.fog = outerFog;
+    }
     camera.layers.enable(0);
+    camera.layers.enable(1);
+    composer.render();
 
     controls.update();
 }
 animate();
+
+// GUI
+const gui = new GUI();
+gui.close();
+
+const houseLabel  = document.getElementById('house-label');
+const technoLabel = document.getElementById('techno-label');
+const tranceLabel = document.getElementById('trance-label');
+houseLabel.classList.add('hidden');
+technoLabel.classList.add('hidden');
+tranceLabel.classList.add('hidden');
+
+const hideAllLabels = () => {
+    houseLabel.classList.add('hidden');
+    technoLabel.classList.add('hidden');
+    tranceLabel.classList.add('hidden');
+};
+
+const params = {
+    strobeSpeed: LASER_STROBE_SPEED,
+    glowColor: '#8d8d8d',
+    ambientMax: INNER_AMBIENT_MAX,
+    ambientSpeed: INNER_AMBIENT_SPEED,
+    toggleAudio: () => {
+        if (technoSound.isPlaying) technoSound.stop();
+        if (trance.isPlaying) trance.stop();
+        if (sound.isPlaying) {
+            sound.pause();
+            hideAllLabels();
+        } else {
+            sound.play();
+            hideAllLabels();
+            houseLabel.classList.remove('hidden');
+        }
+    },
+    playTechno: () => {
+        if (sound.isPlaying) sound.stop();
+        if (trance.isPlaying) trance.stop();
+        if (technoSound.isPlaying) {
+            technoSound.stop();
+            hideAllLabels();
+        } else {
+            technoSound.play();
+            hideAllLabels();
+            technoLabel.classList.remove('hidden');
+        }
+    },
+    trance: () => {
+        if (sound.isPlaying) sound.stop();
+        if (technoSound.isPlaying) technoSound.stop();
+        if (trance.isPlaying) {
+            trance.stop();
+            hideAllLabels();
+        } else {
+            trance.play();
+            hideAllLabels();
+            tranceLabel.classList.remove('hidden');
+        }
+    }
+};
+gui.add(params, 'strobeSpeed', 0.001, 0.05, 0.001)
+    .name('laser strobe speed')
+    .onChange(v => { LASER_STROBE_SPEED = v; });
+gui.addColor(params, 'glowColor')
+    .name('ambient strobe color')
+    .onChange(v => { rave_mat.emissive.set(v); });
+gui.add(params, 'ambientMax', 0, 20, 0.5)
+    .name('ambient brightness')
+    .onChange(v => { INNER_AMBIENT_MAX = v; });
+gui.add(params, 'ambientSpeed', 0.001, 0.05, 0.001)
+    .name('ambient pulse speed')
+    .onChange(v => { INNER_AMBIENT_SPEED = v; });
+const innerBloomFolder = gui.addFolder('inner bloom');
+innerBloomFolder.add({ strength: INNER_BLOOM_STRENGTH }, 'strength', 0, 5, 0.05)
+    .name('strength')
+    .onChange(v => { INNER_BLOOM_STRENGTH = v; });
+innerBloomFolder.add({ radius: INNER_BLOOM_RADIUS }, 'radius', 0, 2, 0.05)
+    .name('radius')
+    .onChange(v => { INNER_BLOOM_RADIUS = v; });
+innerBloomFolder.add({ threshold: INNER_BLOOM_THRESHOLD }, 'threshold', 0, 1, 0.01)
+    .name('threshold')
+    .onChange(v => { INNER_BLOOM_THRESHOLD = v; });
+gui.add(params, 'toggleAudio').name('house');
+gui.add(params, 'playTechno').name('techno');
+gui.add(params, 'trance').name('trance');
+
+// Side Bar
+const trigger = document.getElementById("overlay-right");
+const sidebar = document.getElementById("sidebar");
+const closeBtn = document.getElementById("close-btn");
+
+// Open sidebar
+trigger.addEventListener("click", () => {
+  sidebar.classList.add("active");
+});
+
+// Close sidebar
+closeBtn.addEventListener("click", () => {
+  sidebar.classList.remove("active");
+});
+
+// Return to outer view
+const return_view = document.getElementById("overlay-left");
+return_view.addEventListener("click", () => {
+    cameraTargetPos = new THREE.Vector3(0, 0, 4);
+    controlsTargetPos = new THREE.Vector3(0, 0, 0);
+    transitioning = true;
+    controls.enabled = false;
+})

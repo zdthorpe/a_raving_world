@@ -3,22 +3,68 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Getting Started with Three.js</title>
+    <title>the raving world</title>
     <style>
       body {
         margin: 0;
+      }
+      #overlay-left {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        cursor: pointer;
+        z-index: 10;
+        padding-left: 32px; /* ← adjust this to move text away from the left edge */
+        padding-bottom: 24px;
+        box-sizing: border-box;
+      }
+      #overlay-right {
+        /** position: fixed; */
+        text-align: right;
+        bottom: 0;
+        right: 0;
+        cursor: pointer;
+        z-index: 10;
+        padding-bottom: 24px;
       }
     </style>
     <script type="importmap">
 			{
 				"imports": {
 					"three": "https://cdn.jsdelivr.net/npm/three@0.183.2/build/three.module.js",
-          "jsm/": "https://cdn.jsdelivr.net/npm/three@0.183.2/examples/jsm/"
+          "jsm/": "https://cdn.jsdelivr.net/npm/three@0.183.2/examples/jsm/",
+          "lil-gui": "https://cdn.jsdelivr.net/npm/lil-gui@0.21.0/+esm",
+          "three-good-godrays": "https://unpkg.com/three-good-godrays@0.11.2/build/three-good-godrays.esm.js",
+          "postprocessing": "https://unpkg.com/postprocessing@6.36.5/build/index.js"
         }
 			}
 		</script>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Genos:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
   </head>
   <body>
-    <script type="module" src="index.js"></script>
+      <script type="module" src="index.js"></script>
+      <div id="overlay-left">
+          <p1>a raving world</p1>
+      </div>
+      <!-- <div id="overlay-right">
+          <p1>about</p1>
+      </div> -->
+      <div id="sidebar" class="sidebar">
+        <div id="overlay-right">
+          <p1>about</p1>
+        </div>
+        <p2>
+          <b>a raving world</b> is an exporlation into a posthuman cartography, incorporating poststructural geophilosophies to represent the fluid boundaries and relations between the people, technology, and spaces that consitute rave culture. <br><br>Each radial gradient represents a rave as a plateau in a process of becoming. <b>Click on a rave to enter rave space.</b> <br><br> <b>Click on "a raving world"</b> to return to the default view.
+        </p2>
+        <br>
+        <br>
+        <button id="close-btn">(close)</button>
+      </div>
+      <div id="house-label"><p1>now playing: <marquee>Gat Decor: Passion (Of Your Passion) (7" Edit)</marquee></p1></div>
+      <div id="techno-label"><p1>now playing: <marquee>BAUGRUPPE90: Torque Motion</marquee></p1></div>
+      <div id="trance-label"><p1>now playing: <marquee>4 Strings: Take Me Away - Vocal Radio Mix</marquee></p1></div>
   </body>
 </html>

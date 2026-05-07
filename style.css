@@ -1,0 +1,115 @@
+p1 {
+  color: grey;
+  text-align: left;
+  vertical-align: baseline;
+  font-family: "Genos", sans-serif;
+  font-optical-sizing: auto;
+  font-style: normal;
+}
+
+p2 {
+  color: grey;
+  text-align: left;
+  vertical-align: baseline;
+  font-family: "Genos", sans-serif;
+  font-optical-sizing: auto;
+  font-style: normal;
+  font-size: small;
+}
+
+.sidebar {
+  position: fixed;
+  bottom: 0px;
+  right: 0px;
+  width: 200px;
+  height: 43px;
+  /** background-color: #c5c5c5; */
+  color: white;
+  padding: 0px;
+  transition: right 0.3s ease, height 0.8s ease;
+  z-index: 1000;
+  text-align: right;
+  padding-right: 32px;
+}
+
+.sidebar.active {
+  bottom: 0;
+  height: 600px;
+}
+
+/* Close button */
+#close-btn {
+  background: none;
+  border: none;
+  color: grey;
+  font-family: "Genos", sans-serif;
+  font-size: 12px;
+  cursor: pointer;
+}
+#close-btn:hover {
+  color: white;
+}
+
+#overlay-left p1,
+#overlay-right p1 {
+  transition: color 0.2s ease;
+}
+
+#overlay-left:hover p1,
+#overlay-right:hover p1 {
+  color: white;
+}
+
+#house-label {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  padding-bottom: 24px;
+  text-align: center;
+  width: 400px;
+  transition: opacity 0.3s ease;
+  /** box-sizing: border-box; */
+}
+
+#house-label.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#techno-label {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  padding-bottom: 24px;
+  text-align: center;
+  width: 400px;
+  transition: opacity 0.3s ease;
+  /** box-sizing: border-box; */
+}
+
+#techno-label.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#trance-label {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  padding-bottom: 24px;
+  text-align: center;
+  width: 400px;
+  transition: opacity 0.3s ease;
+  /** box-sizing: border-box; */
+}
+
+#trance-label.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
